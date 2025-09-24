@@ -35,7 +35,6 @@ Agent Demo预发布/
 1. 安装依赖：`pip install -r ai_agent_demo/requirements.txt`
 2. 配置API密钥（Google Gemini和Tavily）
 3. 启动服务（命令行或Web界面）
-
 ## 许可证
 
 本项目采用MIT许可证 - 详情请查看 `ai_agent_demo/LICENSE` 文件。

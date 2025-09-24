@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 包
+*.egg
+*.egg-info/
+build/
+dist/
+*.whl
+
+# 环境
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志
+*.log
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试覆盖
+.coverage
+.coverage.*
+
+# 临时文件
+tmp/
+temp/
+.cache/
+
+# 特定于项目的临时文件
+*.pdf
+*.docx
+*.txt
+
+# 其他
+*.pem
+*.key

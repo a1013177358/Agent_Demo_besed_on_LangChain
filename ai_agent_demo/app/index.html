@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能助手 - 多模态对话与知识库平台</title>
+    <!-- 引入marked.js用于Markdown渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a6cf7;
+            --secondary-color: #6c757d;
+            --background-color: #f5f7fa;
+            --card-background: #ffffff;
+            --user-message-bg: #e3f2fd;
+            --agent-message-bg: #f1f8e9;
+            --border-color: #e0e0e0;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --spacing: 16px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: #333;
+            line-height: 1.6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), #2948ff);
+            color: white;
+            padding: var(--spacing);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .header .logo {
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+        
+        .header .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+            padding: var(--spacing);
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--card-background);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .chat-history {
+            flex: 1;
+            padding: var(--spacing);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--secondary-color) var(--background-color);
+        }
+        
+        .chat-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-history::-webkit-scrollbar-track {
+            background: var(--background-color);
+        }
+        
+        .chat-history::-webkit-scrollbar-thumb {
+            background-color: var(--secondary-color);
+            border-radius: 20px;
+        }
+        
+        .message {
+            margin-bottom: calc(var(--spacing) * 1.5);
+            display: flex;
+            gap: 12px;
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message.agent {
+            flex-direction: row;
+        }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        
+        .user .avatar {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .agent .avatar {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .message-content {
+            max-width: 70%;
+        }
+        
+        .user .message-content {
+            text-align: right;
+        }
+        
+        .agent .message-content {
+            text-align: left;
+        }
+        
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            display: inline-block;
+        }
+        
+        .user .message-bubble {
+            background-color: var(--user-message-bg);
+            border-bottom-right-radius: 6px;
+        }
+        
+        .agent .message-bubble {
+            background-color: var(--agent-message-bg);
+            border-bottom-left-radius: 6px;
+        }
+        
+        .message-time {
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+            margin-top: 4px;
+        }
+        
+        .input-area {
+            padding: var(--spacing);
+            border-top: 1px solid var(--border-color);
+            background-color: var(--card-background);
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
+        #userInput {
+            width: 100%;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 25px;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #userInput:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .file-upload-btn {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            background-color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+        
+        .file-upload-btn:hover {
+            border-color: var(--primary-color);
+            background-color: #f8f9ff;
+        }
+        
+        .file-upload-btn input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .send-btn:hover {
+            background-color: #3a5ce7;
+            transform: scale(1.05);
+        }
+        
+        .send-btn:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .file-preview {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: #f8f9fa;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .file-preview img {
+            max-width: 60px;
+            max-height: 60px;
+            border-radius: 4px;
+        }
+        
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .file-name {
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .file-size {
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+        }
+        
+        .remove-file-btn {
+            background: none;
+            border: none;
+            color: var(--secondary-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.3s;
+        }
+        
+        .remove-file-btn:hover {
+            color: #dc3545;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--secondary-color);
+        }
+        
+        .welcome-message h2 {
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        /* 标签页样式 */
+        .tabs {
+            display: flex;
+            margin-bottom: 16px;
+            background-color: var(--card-background);
+            border-radius: var(--radius) var(--radius) 0 0;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px 16px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: none;
+            font-size: 1rem;
+            transition: all 0.3s;
+            color: var(--secondary-color);
+        }
+        
+        .tab:hover {
+            background-color: #e9ecef;
+        }
+        
+        .tab.active {
+            background-color: var(--card-background);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        /* 知识库页面样式 */
+        .knowledge-base-container {
+            flex: 1;
+            background-color: var(--card-background);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: var(--spacing);
+            display: none;
+            overflow-y: auto;
+        }
+        
+        .knowledge-base-container.active {
+            display: block;
+        }
+        
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: #f8f9ff;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-section:hover {
+            border-color: var(--primary-color);
+            background-color: #f0f4ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74, 108, 247, 0.1);
+        }
+        
+        .upload-section.highlight {
+            border-color: var(--primary-color);
+            background-color: #e8f0ff;
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.8;
+            transition: transform 0.3s;
+        }
+        
+        .upload-section:hover .upload-icon {
+            transform: scale(1.05);
+        }
+        
+        .upload-section h3 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .upload-section p {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        
+        .file-types {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            background-color: rgba(74, 108, 247, 0.1);
+            padding: 4px 12px;
+            border-radius: 16px;
+            display: inline-block;
+        }
+        
+        .files-list {
+            margin-top: 32px;
+        }
+        
+        .files-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .files-list-header h3 {
+            margin-bottom: 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .files-list-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .search-container {
+            position: relative;
+        }
+        
+        .search-input {
+            padding: 8px 32px 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s;
+            width: 200px;
+        }
+        
+        .search-input:focus {
+            border-color: var(--primary-color);
+            width: 240px;
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+            pointer-events: none;
+        }
+        
+        .sort-dropdown {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            outline: none;
+            background-color: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        
+        .sort-dropdown:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+            transition: all 0.3s;
+            background-color: white;
+        }
+        
+        .file-item:hover {
+            background-color: #f8f9fa;
+            border-color: var(--primary-color);
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(74, 108, 247, 0.1);
+        }
+        
+        .file-item-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+        
+        .file-item-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        
+        .file-item-icon.pdf {
+            color: #e83e8c;
+        }
+        
+        .file-item-icon.doc {
+            color: #007bff;
+        }
+        
+        .file-item-icon.txt {
+            color: #6c757d;
+        }
+        
+        .file-item-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .file-item-name {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .file-item-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+        
+        .file-item-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .file-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .file-item-action {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background-color: #f8f9fa;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .file-item-action:hover {
+            background-color: #e9ecef;
+            transform: scale(1.1);
+        }
+        
+        .file-item-action.view:hover {
+            background-color: rgba(74, 108, 247, 0.1);
+        }
+        
+        .file-item-action.delete:hover {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+        
+        .file-item-action.view svg {
+            fill: var(--primary-color);
+        }
+        
+        .file-item-action.delete svg {
+            fill: #dc3545;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary-color);
+            background-color: #f8f9fa;
+            border-radius: var(--radius);
+            border: 1px dashed var(--border-color);
+            margin-top: 24px;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.7;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .empty-state p {
+            margin-bottom: 16px;
+        }
+        
+        .upload-now-btn {
+            padding: 10px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .upload-now-btn:hover {
+            background-color: #3a5ce7;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74, 108, 247, 0.3);
+        }
+        
+        .upload-progress {
+            width: 100%;
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 20px;
+            display: none;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), #2948ff);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .upload-progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        /* 文件统计卡片 */
+        .file-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background-color: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: var(--primary-color);
+        }
+        
+        .stat-icon {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 8px;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+            
+            .header {
+                padding: 12px;
+            }
+            
+            .header h1 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+         <div class="logo">AI助手</div>
+         <div>
+             <h1>智能多模态对话平台</h1>
+             <div class="subtitle">支持文本、PDF和图片分析</div>
+         </div>
+     </div>
+     
+     <div class="main-container">
+         <!-- 标签页 -->
+         <div class="tabs">
+             <button class="tab active" data-tab="chat">对话</button>
+             <button class="tab" data-tab="knowledge-base">知识库</button>
+         </div>
+         
+         <!-- 对话容器 -->
+         <div class="chat-container active" id="chat-container">
+            <div class="chat-history" id="chatHistory">
+                <div class="welcome-message">
+                    <h2>👋 欢迎使用智能助手</h2>
+                    <p>我可以回答您的问题、分析PDF文件和处理图片内容</p>
+                    <p>请在下方输入您的问题，或通过附件按钮上传文件</p>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea id="userInput" placeholder="请输入您的问题，或上传文件进行分析..." rows="1"></textarea>
+                    </div>
+                    
+                    <div class="input-actions">
+                        <label class="file-upload-btn" title="上传文件 (PDF或图片)">
+                            <input type="file" id="fileInput" accept=".pdf, .jpg, .jpeg, .png, .gif">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </label>
+                        
+                        <button class="send-btn" id="sendBtn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 文件预览区域 -->
+                <div id="filePreview" class="file-preview" style="display: none;">
+                    <div id="fileThumbnail"></div>
+                    <div class="file-info">
+                        <div id="fileName" class="file-name"></div>
+                        <div id="fileSize" class="file-size"></div>
+                    </div>
+                    <button class="remove-file-btn" id="removeFileBtn">×</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 知识库容器 -->
+        <div class="knowledge-base-container" id="knowledge-base-container">
+            <!-- 文件统计卡片 -->
+            <div class="file-stats" id="file-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">📚</div>
+                    <div class="stat-value" id="total-files">0</div>
+                    <div class="stat-label">总文件数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📄</div>
+                    <div class="stat-value" id="pdf-files">0</div>
+                    <div class="stat-label">PDF文件</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-value" id="doc-files">0</div>
+                    <div class="stat-label">文档文件</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💾</div>
+                    <div class="stat-value" id="total-size">0 MB</div>
+                    <div class="stat-label">总大小</div>
+                </div>
+            </div>
+            
+            <div class="upload-section" id="upload-section">
+                <input type="file" id="kb-file-input" multiple="true" accept=".txt,.doc,.docx,.pdf,.jpg,.jpeg,.png,.gif" style="display: none;">
+                <div class="upload-icon">📁</div>
+                <h3>上传文件到知识库</h3>
+                <p>点击或拖拽文件到此处上传</p>
+                <span class="file-types">支持格式: TXT, DOC, DOCX, PDF, JPG, PNG, GIF</span>
+                <div class="upload-progress">
+                    <div class="upload-progress-bar" id="upload-progress-bar"></div>
+                </div>
+            </div>
+            
+            <div class="files-list">
+                <div class="files-list-header">
+                    <h3>已上传的知识文件</h3>
+                    <div class="files-list-controls">
+                        <div class="search-container">
+                            <input type="text" id="file-search" class="search-input" placeholder="搜索文件...">
+                            <span class="search-icon">🔍</span>
+                        </div>
+                        <select id="file-sort" class="sort-dropdown">
+                            <option value="upload_time_desc">最近上传</option>
+                            <option value="upload_time_asc">最早上传</option>
+                            <option value="name_asc">名称 (A-Z)</option>
+                            <option value="name_desc">名称 (Z-A)</option>
+                            <option value="size_desc">大小 (大-小)</option>
+                            <option value="size_asc">大小 (小-大)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="files-list-container">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <h3>还没有知识文件</h3>
+                        <p>上传文件到知识库以增强智能助手的回答能力</p>
+                        <button class="upload-now-btn" id="upload-now-btn">立即上传</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatHistory = document.getElementById('chatHistory');
+        const fileInput = document.getElementById('fileInput');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const fileThumbnail = document.getElementById('fileThumbnail');
+        const removeFileBtn = document.getElementById('removeFileBtn');
+        
+        // 存储对话历史
+        let conversationHistory = [];
+        
+        // 存储当前上传的文件
+        let currentFile = null;
+        
+        // 初始化欢迎消息
+        function initWelcomeMessage() {
+            // 每次刷新页面都重置聊天记录
+            conversationHistory = [];
+            // 清空localStorage中的对话历史
+            localStorage.removeItem('conversationHistory');
+        }
+        
+        // 初始化页面
+        initWelcomeMessage();
+        
+        // 监听输入变化，启用/禁用发送按钮
+        userInput.addEventListener('input', updateSendButton);
+        fileInput.addEventListener('change', handleFileSelection);
+        removeFileBtn.addEventListener('click', removeFile);
+        
+        // 更新发送按钮状态
+        function updateSendButton() {
+            sendBtn.disabled = (userInput.value.trim() === '' && !currentFile);
+        }
+        
+        // 处理文件选择
+        function handleFileSelection(event) {
+            if (event.target.files.length > 0) {
+                currentFile = event.target.files[0];
+                
+                // 验证文件类型
+                const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+                if (!validTypes.includes(currentFile.type)) {
+                    alert('请上传PDF或图片文件！');
+                    currentFile = null;
+                    event.target.value = '';
+                    filePreview.style.display = 'none';
+                    return;
+                }
+                
+                // 显示文件预览
+                fileName.textContent = currentFile.name;
+                fileSize.textContent = formatFileSize(currentFile.size);
+                
+                // 对于图片文件，显示缩略图
+                fileThumbnail.innerHTML = '';
+                if (currentFile.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(currentFile);
+                    fileThumbnail.appendChild(img);
+                } else {
+                    // 对于PDF文件，显示PDF图标
+                    const pdfIcon = document.createElement('div');
+                    pdfIcon.innerHTML = `
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M8 21h8"></path>
+                            <path d="M12 17h0"></path>
+                        </svg>
+                    `;
+                    fileThumbnail.appendChild(pdfIcon);
+                }
+                
+                filePreview.style.display = 'flex';
+                updateSendButton();
+            }
+        }
+        
+        // 移除文件
+        function removeFile() {
+            currentFile = null;
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            updateSendButton();
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 添加消息到聊天界面
+        function addMessageToChat(role, content, isNew = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'avatar';
+            avatarDiv.textContent = role === 'user' ? '我' : 'AI';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            
+            // 如果是AI的消息且包含Markdown格式，使用marked.js渲染
+            if (role === 'agent') {
+                try {
+                    // 配置marked.js
+                    marked.setOptions({
+                        breaks: true,  // 将换行符转换为<br>
+                        gfm: true      // 启用GitHub风格Markdown
+                    });
+                    
+                    // 渲染Markdown为HTML
+                    const htmlContent = marked.parse(content);
+                    bubbleDiv.innerHTML = htmlContent;
+                } catch (error) {
+                    // 渲染失败时回退到纯文本
+                    bubbleDiv.textContent = content;
+                }
+            } else {
+                // 用户消息保持纯文本
+                bubbleDiv.textContent = content;
+            }
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            const now = new Date();
+            timeDiv.textContent = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+            
+            contentDiv.appendChild(bubbleDiv);
+            contentDiv.appendChild(timeDiv);
+            messageDiv.appendChild(avatarDiv);
+            messageDiv.appendChild(contentDiv);
+            
+            // 清空欢迎消息
+            if (isNew && chatHistory.querySelector('.welcome-message')) {
+                chatHistory.innerHTML = '';
+            }
+            
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+        
+        // 标签页切换功能
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = {
+            'chat': document.getElementById('chat-container'),
+            'knowledge-base': document.getElementById('knowledge-base-container')
+        };
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有标签和内容的激活状态
+                tabs.forEach(t => t.classList.remove('active'));
+                for (const key in tabContents) {
+                    tabContents[key].classList.remove('active');
+                }
+                
+                // 添加当前标签和内容的激活状态
+                const tabId = tab.getAttribute('data-tab');
+                tab.classList.add('active');
+                tabContents[tabId].classList.add('active');
+            });
+        });
+        
+        // 知识库文件上传功能
+        const uploadSection = document.getElementById('upload-section');
+        const kbFileInput = document.getElementById('kb-file-input');
+        const uploadProgressBar = document.getElementById('upload-progress-bar');
+        const filesListContainer = document.getElementById('files-list-container');
+        
+        // 点击上传区域触发文件选择
+        uploadSection.addEventListener('click', () => {
+            kbFileInput.click();
+        });
+        
+        // 文件选择变化时触发上传
+        kbFileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                uploadKnowledgeFiles(files);
+            }
+        });
+        
+        // 拖放上传
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            uploadSection.classList.add('highlight');
+        }
+        
+        function unhighlight() {
+            uploadSection.classList.remove('highlight');
+        }
+        
+        uploadSection.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                uploadKnowledgeFiles(files);
+            }
+        }
+        
+        // 上传知识库文件
+        function uploadKnowledgeFiles(files) {
+            const uploadProgress = document.querySelector('.upload-progress');
+            uploadProgress.style.display = 'block';
+            uploadProgressBar.style.width = '0%';
+            
+            // 对每个文件创建单独的上传请求
+            Array.from(files).forEach((file, index) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/kb/upload');
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        uploadProgressBar.style.width = `${percentComplete}%`;
+                    }
+                });
+                
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        // 全部上传完成后重新加载文件列表
+                        if (index === files.length - 1) {
+                            uploadProgress.style.display = 'none';
+                            loadKnowledgeFiles();
+                        }
+                    } else {
+                        alert('文件上传失败: ' + xhr.responseText);
+                        uploadProgress.style.display = 'none';
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    alert('网络错误，文件上传失败');
+                    uploadProgress.style.display = 'none';
+                };
+                
+                xhr.send(formData);
+            });
+        }
+        
+        // 文件数据缓存
+        let knowledgeFiles = [];
+        
+        // 加载知识库文件列表
+        function loadKnowledgeFiles() {
+            fetch('/kb/files')
+                .then(response => response.json())
+                .then(data => {
+                    knowledgeFiles = data.files || [];
+                    
+                    // 更新统计信息
+                    updateFileStats();
+                    
+                    // 渲染文件列表
+                    renderFileList();
+                })
+                .catch(error => {
+                    console.error('加载知识库文件失败:', error);
+                    filesListContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <h3>加载失败</h3>
+                            <p>加载知识库文件失败，请刷新页面重试</p>
+                            <button class="upload-now-btn" onclick="window.location.reload()">刷新页面</button>
+                        </div>
+                    `;
+                });
+        }
+        
+        // 更新文件统计信息
+        function updateFileStats() {
+            const totalFiles = knowledgeFiles.length;
+            const pdfFiles = knowledgeFiles.filter(file => file.name.endsWith('.pdf')).length;
+            const docFiles = knowledgeFiles.filter(file => file.name.endsWith('.doc') || file.name.endsWith('.docx')).length;
+            const totalSize = knowledgeFiles.reduce((sum, file) => sum + file.size, 0);
+            
+            document.getElementById('total-files').textContent = totalFiles;
+            document.getElementById('pdf-files').textContent = pdfFiles;
+            document.getElementById('doc-files').textContent = docFiles;
+            document.getElementById('total-size').textContent = formatFileSize(totalSize);
+        }
+        
+        // 渲染文件列表
+        function renderFileList() {
+            // 获取搜索关键词和排序方式
+            const searchTerm = document.getElementById('file-search').value.toLowerCase();
+            const sortBy = document.getElementById('file-sort').value;
+            
+            // 过滤和排序文件
+            let filteredFiles = knowledgeFiles;
+            
+            // 搜索过滤
+            if (searchTerm) {
+                filteredFiles = filteredFiles.filter(file => 
+                    file.name.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // 排序
+            switch (sortBy) {
+                case 'upload_time_desc':
+                    filteredFiles.sort((a, b) => new Date(b.upload_time) - new Date(a.upload_time));
+                    break;
+                case 'upload_time_asc':
+                    filteredFiles.sort((a, b) => new Date(a.upload_time) - new Date(b.upload_time));
+                    break;
+                case 'name_asc':
+                    filteredFiles.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'name_desc':
+                    filteredFiles.sort((a, b) => b.name.localeCompare(a.name));
+                    break;
+                case 'size_desc':
+                    filteredFiles.sort((a, b) => b.size - a.size);
+                    break;
+                case 'size_asc':
+                    filteredFiles.sort((a, b) => a.size - b.size);
+                    break;
+            }
+            
+            // 清空容器
+            filesListContainer.innerHTML = '';
+            
+            if (filteredFiles.length > 0) {
+                filteredFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    // 根据文件类型设置图标和样式
+                    let fileIcon = '📄';
+                    let iconClass = '';
+                    
+                    if (file.name.endsWith('.pdf')) {
+                        fileIcon = '📄';
+                        iconClass = 'pdf';
+                    } else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+                        fileIcon = '📝';
+                        iconClass = 'doc';
+                    } else if (file.name.endsWith('.txt')) {
+                        fileIcon = '📋';
+                        iconClass = 'txt';
+                    }
+                    
+                    // 格式化上传时间
+                    const uploadDate = new Date(file.upload_time);
+                    const formattedDate = uploadDate.toLocaleDateString('zh-CN');
+                    const formattedTime = uploadDate.toLocaleTimeString('zh-CN', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    
+                    fileItem.innerHTML = `
+                        <div class="file-item-info">
+                            <div class="file-item-icon ${iconClass}">${fileIcon}</div>
+                            <div class="file-item-details">
+                                <div class="file-item-name">${file.name}</div>
+                                <div class="file-item-meta">
+                                    <span><span class="meta-icon">📊</span>${formatFileSize(file.size)}</span>
+                                    <span><span class="meta-icon">📅</span>${formattedDate}</span>
+                                    <span><span class="meta-icon">⏰</span>${formattedTime}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="file-item-actions">
+                            <button class="file-item-action view" data-id="${file.id}" title="查看">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="file-item-action delete" data-id="${file.id}" title="删除">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    
+                    filesListContainer.appendChild(fileItem);
+                });
+                
+                // 添加事件监听器
+                document.querySelectorAll('.file-item-action.delete').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const fileId = e.currentTarget.getAttribute('data-id');
+                        deleteKnowledgeFile(fileId);
+                    });
+                });
+                
+                document.querySelectorAll('.file-item-action.view').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const fileId = e.currentTarget.getAttribute('data-id');
+                        viewKnowledgeFile(fileId);
+                    });
+                });
+            } else {
+                if (searchTerm) {
+                    // 搜索无结果
+                    filesListContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <h3>没有找到相关文件</h3>
+                            <p>没有找到与 "${searchTerm}" 相关的文件</p>
+                            <button class="upload-now-btn" id="clear-search-btn">清除搜索</button>
+                        </div>
+                    `;
+                    
+                    // 绑定清除搜索按钮事件
+                    document.getElementById('clear-search-btn').addEventListener('click', () => {
+                        document.getElementById('file-search').value = '';
+                        renderFileList();
+                    });
+                } else {
+                    // 空状态
+                    filesListContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📚</div>
+                            <h3>还没有知识文件</h3>
+                            <p>上传文件到知识库以增强智能助手的回答能力</p>
+                            <button class="upload-now-btn" id="upload-now-btn">立即上传</button>
+                        </div>
+                    `;
+                    
+                    // 绑定立即上传按钮事件
+                    document.getElementById('upload-now-btn').addEventListener('click', () => {
+                        kbFileInput.click();
+                    });
+                }
+            }
+        }
+        
+        // 绑定搜索和排序事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileSearch = document.getElementById('file-search');
+            const fileSort = document.getElementById('file-sort');
+            const uploadNowBtn = document.getElementById('upload-now-btn');
+            
+            if (fileSearch) {
+                fileSearch.addEventListener('input', renderFileList);
+            }
+            
+            if (fileSort) {
+                fileSort.addEventListener('change', renderFileList);
+            }
+            
+            if (uploadNowBtn) {
+                uploadNowBtn.addEventListener('click', () => {
+                    kbFileInput.click();
+                });
+            }
+        });
+        
+        // 删除知识库文件
+        function deleteKnowledgeFile(fileId) {
+            if (confirm('确定要删除这个文件吗？')) {
+                fetch(`/kb/delete/${fileId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadKnowledgeFiles();
+                    } else {
+                        alert('删除文件失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('删除文件失败:', error);
+                    alert('删除文件失败，请重试');
+                });
+            }
+        }
+        
+        // 查看知识库文件
+        function viewKnowledgeFile(fileId) {
+            // 这里可以实现查看文件的功能，例如打开新窗口或显示文件内容
+            alert('查看文件功能尚未实现');
+        }
+        
+        // 初始化加载知识库文件列表
+        loadKnowledgeFiles();
+        
+        // 为元图标添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .meta-icon {
+                display: inline-block;
+                width: 16px;
+                text-align: center;
+            }
+            
+            /* 预览按钮样式 */
+            .preview-button {
+                margin-left: 10px;
+                padding: 4px 8px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            
+            .preview-button:hover {
+                background-color: #45a049;
+            }
+            
+            /* 预览模态框样式 */
+            .preview-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }
+            
+            .preview-modal-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                position: relative;
+                max-width: 90%;
+                max-height: 90%;
+                overflow: auto;
+            }
+            
+            .preview-modal-close {
+                position: absolute;
+                top: 10px;
+                right: 15px;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+            }
+            
+            .preview-modal-close:hover {
+                color: #333;
+            }
+            
+            .preview-image {
+                max-width: 100%;
+                max-height: 80vh;
+                display: block;
+                margin: 0 auto;
+            }
+            
+            .pdf-preview {
+                min-width: 600px;
+                min-height: 400px;
+            }
+            
+            .pdf-placeholder {
+                text-align: center;
+                padding: 40px;
+            }
+            
+            .pdf-icon {
+                font-size: 48px;
+                margin-bottom: 20px;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 发送消息
+        async function sendMessage() {
+            const query = userInput.value.trim();
+            
+            if (query === '' && !currentFile) {
+                return;
+            }
+            
+            // 禁用发送按钮
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+            
+            // 添加用户消息到聊天界面
+            if (query) {
+                addMessageToChat('user', query);
+            } else if (currentFile) {
+                // 如果没有文本但有文件，使用文件名作为消息内容
+                addMessageToChat('user', `上传了文件: ${currentFile.name}`);
+            }
+            
+            // 清空输入框和文件
+            userInput.value = '';
+            const fileToSend = currentFile;
+            removeFile();
+            
+            try {
+                let response;
+                if (fileToSend) {
+                    // 发送文件请求
+                    response = await sendFileRequest(fileToSend);
+                } else {
+                    // 发送文本请求
+                    response = await sendTextRequest(query);
+                }
+                
+                // 确保只显示最终输出结果
+                let finalOutput = '';
+                
+                // 处理不同类型的响应
+                if (typeof response === 'string') {
+                    // 字符串响应，直接使用
+                    finalOutput = response;
+                } else if (typeof response === 'object' && response !== null) {
+                    // 对象响应，优先提取output字段
+                    if (response.output) {
+                        finalOutput = response.output;
+                    } else if (response.content) {
+                        finalOutput = response.content;
+                    } else if (response.result) {
+                        finalOutput = response.result;
+                    } else {
+                        // 过滤掉思考过程字段后转换为字符串
+                        const filteredResponse = filterOutThinkingProcess(response);
+                        finalOutput = typeof filteredResponse === 'object' ? JSON.stringify(filteredResponse, null, 2) : String(filteredResponse);
+                    }
+                }
+                
+                // 确保输出不为空
+                finalOutput = finalOutput || '未收到有效响应';
+                
+                // 添加助手消息到聊天界面
+                addMessageToChat('agent', finalOutput);
+                
+                // 更新对话历史，但不保存到localStorage以确保刷新后重置
+                updateConversationHistory(query ? 'user' : 'user', query || `上传了文件: ${fileToSend.name}`);
+                updateConversationHistory('assistant', finalOutput);
+                
+            } catch (error) {
+                addMessageToChat('agent', `发生错误: ${error.message}`);
+                console.error('发送请求失败:', error);
+            } finally {
+                // 恢复发送按钮
+                sendBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                `;
+                updateSendButton();
+            }
+        }
+        
+        // 发送文本请求
+        async function sendTextRequest(query) {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    history: conversationHistory
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP错误! 状态码: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.response;
+        }
+        
+        // 发送文件请求
+        async function sendFileRequest(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('history', JSON.stringify(conversationHistory));
+            
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP错误! 状态码: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // 如果响应中包含文件路径和类型，更新界面以显示预览
+            if (data.file_path && data.file_type && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+                // 找到最近添加的用户消息元素
+                const messages = document.querySelectorAll('.chat-message.user');
+                if (messages.length > 0) {
+                    const lastUserMessage = messages[messages.length - 1];
+                    const contentElement = lastUserMessage.querySelector('.message-content');
+                    
+                    // 添加预览按钮
+                    const previewButton = document.createElement('button');
+                    previewButton.className = 'preview-button';
+                    previewButton.textContent = '预览文件';
+                    previewButton.onclick = function() {
+                        if (file.type.startsWith('image/')) {
+                            showImagePreview(data.file_path);
+                        } else if (file.type === 'application/pdf') {
+                            showPdfPreview(data.file_path);
+                        }
+                    };
+                    
+                    // 在文件名后添加预览按钮
+                    if (contentElement) {
+                        contentElement.appendChild(previewButton);
+                    }
+                }
+            }
+            
+            return data.response;
+        }
+        
+        // 显示图片预览
+        function showImagePreview(imagePath) {
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.className = 'preview-modal';
+            modal.innerHTML = `
+                <div class="preview-modal-content">
+                    <span class="preview-modal-close">&times;</span>
+                    <img src="file://${imagePath}" alt="预览图片" class="preview-image">
+                </div>
+            `;
+            
+            // 添加关闭功能
+            const closeBtn = modal.querySelector('.preview-modal-close');
+            closeBtn.onclick = function() {
+                modal.remove();
+            };
+            
+            // 点击模态框外部关闭
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+        }
+        
+        // 显示PDF预览
+        function showPdfPreview(pdfPath) {
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.className = 'preview-modal';
+            modal.innerHTML = `
+                <div class="preview-modal-content pdf-preview">
+                    <span class="preview-modal-close">&times;</span>
+                    <div class="pdf-placeholder">
+                        <div class="pdf-icon">📄</div>
+                        <p>PDF文件已保存，路径：${pdfPath}</p>
+                        <p>请在文件系统中打开查看</p>
+                    </div>
+                </div>
+            `;
+            
+            // 添加关闭功能
+            const closeBtn = modal.querySelector('.preview-modal-close');
+            closeBtn.onclick = function() {
+                modal.remove();
+            };
+            
+            // 点击模态框外部关闭
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+        }
+        
+        // 更新对话历史（不再保存到localStorage以确保刷新后重置）
+        function updateConversationHistory(role, content) {
+            conversationHistory.push({
+                role: role,
+                content: content
+            });
+        }
+        
+        // 过滤掉思考过程相关的字段，确保只返回最终结果
+        function filterOutThinkingProcess(responseObj) {
+            // 处理字符串类型的响应
+            if (typeof responseObj === 'string') {
+                // 检查字符串是否包含JSON格式
+                try {
+                    const parsedObj = JSON.parse(responseObj);
+                    return filterOutThinkingProcess(parsedObj);
+                } catch (e) {
+                    // 如果不是有效的JSON，直接返回原始字符串
+                    return responseObj;
+                }
+            }
+            
+            // 如果不是对象或为空，直接返回
+            if (typeof responseObj !== 'object' || responseObj === null) {
+                return responseObj;
+            }
+            
+            // 创建一个新对象，避免修改原始对象
+            const filteredObj = { ...responseObj };
+            
+            // 移除可能包含思考过程的字段
+            const thinkingFields = [
+                'thought', 'thinking', 'reasoning', 'steps', 'process', 
+                'chain', 'agent_scratchpad', 'intermediate_steps', 'action', 
+                'observation', 'messages', 'chat_history', 'history'
+            ];
+            for (const field of thinkingFields) {
+                if (filteredObj.hasOwnProperty(field)) {
+                    delete filteredObj[field];
+                }
+            }
+            
+            // 递归过滤嵌套对象
+            for (const key in filteredObj) {
+                if (typeof filteredObj[key] === 'object' && filteredObj[key] !== null) {
+                    filteredObj[key] = filterOutThinkingProcess(filteredObj[key]);
+                }
+            }
+            
+            return filteredObj;
+        }
+        
+        // 为文本框添加Enter键发送功能（Ctrl+Enter换行）
+        userInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
+                event.preventDefault();
+                if (!sendBtn.disabled) {
+                    sendMessage();
+                }
+            }
+        });
+        
+        // 点击发送按钮发送消息
+        sendBtn.addEventListener('click', sendMessage);
+    </script>
+</body>
+</html>
